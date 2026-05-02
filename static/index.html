@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>论文 PDF 翻译器</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="workspace">
+      <header class="topbar">
+        <div>
+          <h1>论文 PDF 翻译器</h1>
+          <p>上传 PDF，调用官方或第三方 API，原位替换文字并保留页面结构。</p>
+        </div>
+        <a class="ghost" href="https://ai.google.dev/gemini-api/docs/openai?hl=zh-CN" target="_blank" rel="noreferrer">Gemini 文档</a>
+      </header>
+
+      <form id="translatorForm" class="panel">
+        <label class="dropzone" id="dropzone">
+          <input id="pdf" name="pdf" type="file" accept="application/pdf" required>
+          <span class="drop-title">选择或拖入 PDF</span>
+          <span class="drop-meta" id="fileMeta">未选择文件</span>
+        </label>
+
+        <div class="grid">
+          <label>
+            <span>API 类型</span>
+            <select name="provider" id="provider">
+              <option value="openai">OpenAI-compatible</option>
+              <option value="deepseek">DeepSeek 官方 API</option>
+              <option value="gemini">Gemini 官方 API</option>
+              <option value="deepl">DeepL</option>
+              <option value="libre">LibreTranslate</option>
+              <option value="custom">Custom JSON</option>
+              <option value="mock">Mock 版式测试</option>
+            </select>
+          </label>
+          <label>
+            <span>API URL</span>
+            <input name="api_url" id="apiUrl" placeholder="https://api.openai.com/v1/chat/completions">
+          </label>
+          <label>
+            <span>API Key</span>
+            <input name="api_key" id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
+          </label>
+          <label>
+            <span>模型 / 引擎</span>
+            <input name="model" id="model" list="modelOptions" placeholder="gpt-4.1-mini">
+            <datalist id="modelOptions"></datalist>
+          </label>
+          <label>
+            <span>源语言</span>
+            <input name="source" value="auto">
+          </label>
+          <label>
+            <span>目标语言</span>
+            <input name="target" value="中文">
+          </label>
+          <label>
+            <span>每批字符数</span>
+            <input name="chunk_chars" type="number" min="200" max="8000" value="2500">
+          </label>
+          <label>
+            <span>超时秒数</span>
+            <input name="timeout" type="number" min="10" max="300" value="90">
+          </label>
+          <label>
+            <span>并发数</span>
+            <input name="concurrency" type="number" min="1" max="8" value="2">
+          </label>
+          <label>
+            <span>失败重试</span>
+            <input name="retries" type="number" min="0" max="5" value="2">
+          </label>
+          <label>
+            <span>翻译模式</span>
+            <select name="translation_mode">
+              <option value="fast">快速</option>
+              <option value="precise">精准保护</option>
+            </select>
+          </label>
+          <label>
+            <span>排版方式</span>
+            <select name="layout_mode">
+              <option value="block">段落块</option>
+              <option value="line">逐行兼容</option>
+            </select>
+          </label>
+          <label>
+            <span>译文字体</span>
+            <select name="font_choice">
+              <option value="academic" selected>论文模板</option>
+              <option value="auto">自动</option>
+              <option value="songti">宋体</option>
+              <option value="heiti">黑体</option>
+              <option value="arial_unicode">Arial Unicode</option>
+              <option value="helvetica">内置 Helvetica</option>
+            </select>
+          </label>
+          <label class="check-field">
+            <span>翻译缓存</span>
+            <input name="cache_enabled" type="checkbox" checked>
+          </label>
+          <section class="wide-field page-range-box">
+            <div class="field-title">页码范围</div>
+            <div class="page-range-controls">
+              <select name="page_mode" id="pageMode">
+                <option value="all">全部页面</option>
+                <option value="first">前 N 页</option>
+                <option value="custom">自定义</option>
+              </select>
+              <input name="page_first_count" id="pageFirstCount" type="number" min="1" max="999" value="1" aria-label="前 N 页">
+              <input name="page_range" id="pageRange" placeholder="例如 1-5,8,10-12">
+            </div>
+            <span class="field-hint" id="pageRangeHint">默认翻译全部页面；测试效果建议先选前 1 页。</span>
+          </section>
+        </div>
+
+        <label class="prompt">
+          <span>自定义翻译提示词</span>
+          <textarea name="prompt" rows="4" placeholder="可选。OpenAI-compatible 模式会使用它作为 system prompt。"></textarea>
+        </label>
+
+        <section class="api-pool">
+          <div class="api-pool-head">
+            <div>
+              <h2>API 池</h2>
+              <p>可选。多组 API 会按批次轮流调用，失败时按重试设置切换下一组。</p>
+            </div>
+            <div class="api-pool-actions">
+              <button type="button" class="secondary" id="addCurrentApiBtn">加入当前 API</button>
+              <button type="button" class="secondary" id="addApiRowBtn">添加一组</button>
+            </div>
+          </div>
+          <div class="pool-grid pool-grid-head" aria-hidden="true">
+            <span>类型</span>
+            <span>URL</span>
+            <span>Key</span>
+            <span>模型</span>
+            <span></span>
+          </div>
+          <div class="pool-rows" id="apiPoolRows"></div>
+          <textarea name="api_pool" id="apiPool" class="hidden" rows="1"></textarea>
+        </section>
+
+        <div class="secret-tools">
+          <label class="inline-check">
+            <input id="rememberSecrets" type="checkbox">
+            <span>记住密钥和配置</span>
+          </label>
+          <button type="button" class="secondary" id="clearSecretsBtn">清除已保存密钥</button>
+          <span id="storageHint">仅保存到当前浏览器本地，不写入项目文件。</span>
+        </div>
+
+        <div class="api-tools">
+          <button type="button" class="secondary" id="fetchModelsBtn">拉取模型</button>
+          <button type="button" class="secondary" id="checkBtn">测试连接</button>
+          <span id="modelHint">OpenAI-compatible、DeepSeek 和 Gemini 会从模型接口拉取；失败时使用内置官方模型列表。</span>
+        </div>
+
+        <div class="actions">
+          <button type="submit" id="submitBtn">
+            <span class="icon">↻</span>
+            开始翻译
+          </button>
+        </div>
+
+        <div class="progress-wrap hidden" id="progressWrap" aria-live="polite">
+          <div class="progress-head">
+            <span id="progressStage">等待开始</span>
+            <strong id="progressValue">0%</strong>
+          </div>
+          <div class="progress-track">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="progress-detail" id="progressDetail">准备提交任务。</div>
+        </div>
+
+        <div class="result-card hidden" id="resultCard">
+          <div class="result-copy">
+            <strong>译文 PDF 已生成</strong>
+            <span id="resultMeta">可以下载到本机。</span>
+          </div>
+          <div class="result-actions">
+            <a id="downloadBtn" class="download" href="#" target="_blank" rel="noreferrer">下载 PDF</a>
+          </div>
+          <div class="download-progress hidden" id="downloadProgress">
+            <div class="download-progress-head">
+              <span id="downloadStage">准备下载</span>
+              <strong id="downloadValue">0%</strong>
+            </div>
+            <div class="progress-track">
+              <div class="progress-bar" id="downloadBar"></div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <section class="status" id="status">
+        <div class="status-dot"></div>
+        <p>准备就绪。支持最大 50MB PDF，第一次建议用 Mock 模式验证 PDF 是否能正确提取文字。</p>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('translatorForm');
+    const pdfInput = document.getElementById('pdf');
+    const fileMeta = document.getElementById('fileMeta');
+    const statusBox = document.getElementById('status');
+    const submitBtn = document.getElementById('submitBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const resultCard = document.getElementById('resultCard');
+    const resultMeta = document.getElementById('resultMeta');
+    const downloadProgress = document.getElementById('downloadProgress');
+    const downloadBar = document.getElementById('downloadBar');
+    const downloadValue = document.getElementById('downloadValue');
+    const downloadStage = document.getElementById('downloadStage');
+    const fetchModelsBtn = document.getElementById('fetchModelsBtn');
+    const checkBtn = document.getElementById('checkBtn');
+    const modelOptions = document.getElementById('modelOptions');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressBar = document.getElementById('progressBar');
+    const progressValue = document.getElementById('progressValue');
+    const progressStage = document.getElementById('progressStage');
+    const progressDetail = document.getElementById('progressDetail');
+    const provider = document.getElementById('provider');
+    const apiUrl = document.getElementById('apiUrl');
+    const apiKey = document.getElementById('apiKey');
+    const apiPool = document.getElementById('apiPool');
+    const apiPoolRows = document.getElementById('apiPoolRows');
+    const addApiRowBtn = document.getElementById('addApiRowBtn');
+    const addCurrentApiBtn = document.getElementById('addCurrentApiBtn');
+    const model = document.getElementById('model');
+    const pageMode = document.getElementById('pageMode');
+    const pageFirstCount = document.getElementById('pageFirstCount');
+    const pageRange = document.getElementById('pageRange');
+    const pageRangeHint = document.getElementById('pageRangeHint');
+    const rememberSecrets = document.getElementById('rememberSecrets');
+    const clearSecretsBtn = document.getElementById('clearSecretsBtn');
+    const maxFileBytes = 50 * 1024 * 1024;
+    const storageKey = 'paperPdfTranslator.settings.v1';
+
+    const defaults = {
+      openai: ['https://api.openai.com/v1/chat/completions', 'gpt-4.1-mini'],
+      deepseek: ['https://api.deepseek.com/chat/completions', 'deepseek-v4-flash'],
+      gemini: ['https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', 'gemini-2.5-flash'],
+      deepl: ['https://api-free.deepl.com/v2/translate', ''],
+      libre: ['https://libretranslate.com/translate', ''],
+      custom: ['https://example.com/translate', ''],
+      mock: ['', '']
+    };
+
+    provider.addEventListener('change', () => {
+      const [url, modelName] = defaults[provider.value];
+      apiUrl.placeholder = url;
+      const knownUrls = Object.values(defaults).map(([item]) => item).concat(['https://api.deepseek.com']);
+      if (!apiUrl.value || knownUrls.includes(apiUrl.value)) apiUrl.value = url;
+      model.placeholder = modelName;
+      if (!model.value || Object.values(defaults).some(([, item]) => item === model.value)) model.value = modelName;
+    });
+
+    function createProviderSelect(value = 'openai') {
+      const select = document.createElement('select');
+      select.className = 'pool-provider';
+      Object.entries({
+        openai: 'OpenAI-compatible',
+        deepseek: 'DeepSeek',
+        gemini: 'Gemini',
+        deepl: 'DeepL',
+        libre: 'LibreTranslate',
+        custom: 'Custom JSON',
+        mock: 'Mock'
+      }).forEach(([optionValue, label]) => {
+        const option = document.createElement('option');
+        option.value = optionValue;
+        option.textContent = label;
+        select.appendChild(option);
+      });
+      select.value = value || 'openai';
+      return select;
+    }
+
+    function apiPoolLineFromRow(row) {
+      const type = row.querySelector('.pool-provider').value.trim();
+      const url = row.querySelector('.pool-url').value.trim();
+      const key = row.querySelector('.pool-key').value.trim();
+      const modelName = row.querySelector('.pool-model').value.trim();
+      if (!url && !key && !modelName && type !== 'mock') return '';
+      return [type, url, key, modelName].join('|');
+    }
+
+    function syncApiPoolField() {
+      const lines = [...apiPoolRows.querySelectorAll('.pool-row')]
+        .map(apiPoolLineFromRow)
+        .filter(Boolean);
+      apiPool.value = lines.join('\n');
+      return apiPool.value;
+    }
+
+    function addApiPoolRow(values = {}) {
+      const row = document.createElement('div');
+      row.className = 'pool-grid pool-row';
+
+      const typeSelect = createProviderSelect(values.provider || values.type || provider.value);
+      const [defaultUrl, defaultModel] = defaults[typeSelect.value] || ['', ''];
+      const urlInput = document.createElement('input');
+      urlInput.className = 'pool-url';
+      urlInput.placeholder = 'https://api.example.com/v1/chat/completions';
+      urlInput.value = values.api_url || values.url || '';
+
+      const keyInput = document.createElement('input');
+      keyInput.className = 'pool-key';
+      keyInput.type = 'password';
+      keyInput.autocomplete = 'off';
+      keyInput.placeholder = 'API Key';
+      keyInput.value = values.api_key || values.key || '';
+
+      const modelInput = document.createElement('input');
+      modelInput.className = 'pool-model';
+      modelInput.placeholder = '模型名';
+      modelInput.value = values.model || '';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'secondary pool-remove';
+      removeBtn.textContent = '删除';
+      removeBtn.addEventListener('click', () => {
+        row.remove();
+        syncApiPoolField();
+      });
+
+      typeSelect.addEventListener('change', () => {
+        const [defaultUrl, defaultModel] = defaults[typeSelect.value] || ['', ''];
+        if (!urlInput.value) urlInput.value = defaultUrl;
+        if (!modelInput.value) modelInput.value = defaultModel;
+        syncApiPoolField();
+      });
+      [urlInput, keyInput, modelInput].forEach((input) => input.addEventListener('input', syncApiPoolField));
+
+      row.append(typeSelect, urlInput, keyInput, modelInput, removeBtn);
+      apiPoolRows.appendChild(row);
+      syncApiPoolField();
+      return row;
+    }
+
+    function parseApiPoolText(text) {
+      apiPoolRows.innerHTML = '';
+      const rows = String(text || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      rows.forEach((line) => {
+        const [type = 'openai', url = '', key = '', modelName = ''] = line.split('|');
+        addApiPoolRow({ type, url, key, model: modelName });
+      });
+      syncApiPoolField();
+    }
+
+    addApiRowBtn.addEventListener('click', () => {
+      const row = addApiPoolRow({ provider: provider.value });
+      row.querySelector('.pool-url').focus();
+    });
+
+    addCurrentApiBtn.addEventListener('click', () => {
+      normalizeBeforeSubmit();
+      addApiPoolRow({
+        provider: provider.value,
+        api_url: apiUrl.value,
+        api_key: apiKey.value,
+        model: model.value
+      });
+      setStatus('已把当前 API 配置加入 API 池。', 'done');
+    });
+
+    function syncPageRangeControls() {
+      if (pageMode.value === 'all') {
+        pageRange.value = '';
+        pageFirstCount.readOnly = true;
+        pageRange.readOnly = true;
+        pageRangeHint.textContent = '将翻译 PDF 的全部页面。';
+        return '';
+      }
+      if (pageMode.value === 'first') {
+        const count = Math.max(1, Number.parseInt(pageFirstCount.value || '1', 10) || 1);
+        pageFirstCount.value = String(count);
+        pageFirstCount.readOnly = false;
+        pageRange.readOnly = true;
+        pageRange.value = count === 1 ? '1' : `1-${count}`;
+        pageRangeHint.textContent = `将翻译前 ${count} 页，适合先快速测试效果。`;
+        return pageRange.value;
+      }
+      pageFirstCount.readOnly = true;
+      pageRange.readOnly = false;
+      pageRangeHint.textContent = '支持 1-5,8,10-12，也支持中文逗号或 1～5。';
+      return pageRange.value.trim();
+    }
+
+    pageMode.addEventListener('change', syncPageRangeControls);
+    pageFirstCount.addEventListener('input', syncPageRangeControls);
+    pageRange.addEventListener('input', syncPageRangeControls);
+
+    function formSettings() {
+      syncApiPoolField();
+      syncPageRangeControls();
+      const data = new FormData(form);
+      return {
+        provider: data.get('provider') || '',
+        api_url: data.get('api_url') || '',
+        api_key: data.get('api_key') || '',
+        model: data.get('model') || '',
+        source: data.get('source') || 'auto',
+        target: data.get('target') || '中文',
+        chunk_chars: data.get('chunk_chars') || '2500',
+        timeout: data.get('timeout') || '90',
+        concurrency: data.get('concurrency') || '2',
+        retries: data.get('retries') || '2',
+        translation_mode: data.get('translation_mode') || 'fast',
+        layout_mode: data.get('layout_mode') || 'block',
+        font_choice: data.get('font_choice') || 'academic',
+        cache_enabled: data.get('cache_enabled') || 'off',
+        page_mode: data.get('page_mode') || 'all',
+        page_first_count: data.get('page_first_count') || '1',
+        page_range: data.get('page_range') || '',
+        prompt: data.get('prompt') || '',
+        api_pool: data.get('api_pool') || '',
+        remember: rememberSecrets.checked
+      };
+    }
+
+    function applySettings(settings) {
+      if (!settings) return;
+      Object.entries(settings).forEach(([key, value]) => {
+        if (key === 'remember') return;
+        const field = form.elements[key];
+        if (!field) return;
+        if (field.type === 'checkbox') {
+          field.checked = value === 'on' || value === true;
+        } else {
+          field.value = value;
+        }
+      });
+      rememberSecrets.checked = Boolean(settings.remember);
+      provider.dispatchEvent(new Event('change'));
+      parseApiPoolText(settings.api_pool || '');
+      syncPageRangeControls();
+    }
+
+    function loadSavedSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        if (saved) {
+          applySettings(saved);
+          setStatus('已从本机浏览器加载保存的 API 配置。', 'done');
+        }
+      } catch {
+        localStorage.removeItem(storageKey);
+      }
+    }
+
+    function saveSettingsIfAllowed() {
+      if (!rememberSecrets.checked) return;
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(formSettings()));
+        setStatus('已保存 API 配置到当前浏览器本地。', 'done');
+      } catch {
+        setStatus('浏览器阻止了本地保存，请检查隐私设置或存储空间。', 'error');
+      }
+    }
+
+    clearSecretsBtn.addEventListener('click', () => {
+      localStorage.removeItem(storageKey);
+      rememberSecrets.checked = false;
+      apiKey.value = '';
+      apiPool.value = '';
+      parseApiPoolText('');
+      setStatus('已清除当前浏览器保存的密钥和 API 池。', 'done');
+    });
+
+    pdfInput.addEventListener('change', () => {
+      const file = pdfInput.files[0];
+      if (!file) {
+        fileMeta.textContent = '未选择文件';
+        return;
+      }
+      const size = file.size / 1024 / 1024;
+      fileMeta.textContent = `${file.name} · ${size.toFixed(2)} MB`;
+      if (file.size > maxFileBytes) {
+        setStatus('PDF 文件最大支持 50MB，请选择更小的文件。', 'error');
+        pdfInput.value = '';
+        fileMeta.textContent = '未选择文件';
+      }
+    });
+
+    function setStatus(text, tone = 'idle') {
+      statusBox.className = `status ${tone}`;
+      statusBox.querySelector('p').textContent = text;
+    }
+
+    function updateProgress(job) {
+      const value = Math.max(0, Math.min(100, Number(job.progress || 0)));
+      progressWrap.classList.remove('hidden');
+      progressBar.style.width = `${value}%`;
+      progressValue.textContent = `${Math.round(value)}%`;
+      progressStage.textContent = job.stage || '正在处理';
+      const parts = [];
+      if (job.translated_count !== undefined && job.line_count !== undefined) {
+        parts.push(`${job.unit_label || '文字行'} ${job.translated_count}/${job.line_count}`);
+      }
+      if (job.translated_chunks !== undefined && job.chunk_count !== undefined) {
+        parts.push(`批次 ${job.translated_chunks}/${job.chunk_count}`);
+      }
+      if (job.concurrency !== undefined) {
+        parts.push(`并发 ${job.concurrency}`);
+      }
+      if (job.retries !== undefined) {
+        parts.push(`重试 ${job.retries}`);
+      }
+      if (job.page_range) {
+        parts.push(job.page_range);
+      }
+      if (job.api_count !== undefined) {
+        parts.push(`API ${job.api_count} 组`);
+      }
+      if (job.translation_mode) {
+        parts.push(job.translation_mode === 'precise' ? '精准保护' : '快速');
+      }
+      if (job.layout_mode) {
+        parts.push(job.layout_mode === 'block' ? '段落块排版' : '逐行排版');
+      }
+      if (job.font_label) {
+        parts.push(`字体 ${job.font_label}`);
+      }
+      if (job.preserve_color) {
+        parts.push('保留原色');
+      }
+      if (job.skipped_units !== undefined) {
+        parts.push(`保护 ${job.skipped_units} 个图表/公式/页眉块`);
+      }
+      if (job.cache_hits !== undefined) {
+        parts.push(`缓存 ${job.cache_hits}`);
+      }
+      progressDetail.textContent = parts.length ? parts.join(' · ') : '任务正在准备。';
+    }
+
+    async function pollJob(statusUrl) {
+      while (true) {
+        const response = await fetch(statusUrl);
+        const job = await response.json();
+        if (!response.ok || job.ok === false) throw new Error(job.error || '任务状态读取失败');
+        updateProgress(job);
+        if (job.status === 'done') return job;
+        if (job.status === 'error') throw new Error(job.error || '翻译失败');
+        await new Promise((resolve) => setTimeout(resolve, 900));
+      }
+    }
+
+    function apiConfig() {
+      syncApiPoolField();
+      const data = new FormData(form);
+      return {
+        provider: data.get('provider'),
+        api_url: data.get('api_url'),
+        api_key: data.get('api_key'),
+        model: data.get('model'),
+        source: data.get('source'),
+        target: data.get('target'),
+        timeout: data.get('timeout'),
+        api_pool: data.get('api_pool'),
+        translation_mode: data.get('translation_mode'),
+        layout_mode: data.get('layout_mode'),
+        font_choice: data.get('font_choice'),
+        cache_enabled: data.get('cache_enabled') || 'off'
+      };
+    }
+
+    function normalizeBeforeSubmit() {
+      const normalizedUrl = apiUrl.value.trim().replace(/\/$/, '');
+      if (provider.value === 'deepseek' && normalizedUrl === 'https://api.deepseek.com') {
+        apiUrl.value = defaults.deepseek[0];
+      }
+      if (provider.value === 'gemini' && normalizedUrl === 'https://generativelanguage.googleapis.com/v1beta/openai') {
+        apiUrl.value = defaults.gemini[0];
+      }
+    }
+
+    async function postJson(url, payload) {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok || data.ok === false) throw new Error(data.error || data.message || '请求失败');
+      return data;
+    }
+
+    fetchModelsBtn.addEventListener('click', async () => {
+      fetchModelsBtn.disabled = true;
+      saveSettingsIfAllowed();
+      setStatus('正在拉取模型列表。', 'working');
+      try {
+        const data = await postJson('/api/models', apiConfig());
+        modelOptions.innerHTML = '';
+        data.models.forEach((item) => {
+          const option = document.createElement('option');
+          option.value = item;
+          modelOptions.appendChild(option);
+        });
+        if (data.models.length && !model.value) model.value = data.models[0];
+        setStatus(`已拉取 ${data.count} 个模型。可在“模型 / 引擎”输入框中选择。`, 'done');
+      } catch (error) {
+        setStatus(error.message, 'error');
+      } finally {
+        fetchModelsBtn.disabled = false;
+      }
+    });
+
+    checkBtn.addEventListener('click', async () => {
+      checkBtn.disabled = true;
+      saveSettingsIfAllowed();
+      setStatus('正在测试 API 和模型连接。', 'working');
+      try {
+        const data = await postJson('/api/check', apiConfig());
+        setStatus(data.message || '连接成功。', 'done');
+      } catch (error) {
+        setStatus(error.message, 'error');
+      } finally {
+        checkBtn.disabled = false;
+      }
+    });
+
+    function updateDownloadProgress(received, total) {
+      downloadProgress.classList.remove('hidden');
+      if (total > 0) {
+        const value = Math.max(0, Math.min(100, received / total * 100));
+        downloadBar.style.width = `${value}%`;
+        downloadValue.textContent = `${Math.round(value)}%`;
+        downloadStage.textContent = `正在下载 ${(received / 1024 / 1024).toFixed(1)} / ${(total / 1024 / 1024).toFixed(1)} MB`;
+      } else {
+        downloadBar.style.width = '100%';
+        downloadValue.textContent = '下载中';
+        downloadStage.textContent = `正在下载 ${(received / 1024 / 1024).toFixed(1)} MB`;
+      }
+    }
+
+    async function downloadPdfWithProgress(event) {
+      event.preventDefault();
+      if (!downloadBtn.href || downloadBtn.href.endsWith('#')) return;
+      downloadBtn.classList.add('is-loading');
+      updateDownloadProgress(0, 0);
+      try {
+        const response = await fetch(downloadBtn.href);
+        if (!response.ok) throw new Error('下载失败，请稍后重试。');
+        const total = Number(response.headers.get('Content-Length') || 0);
+        if (!response.body) {
+          window.location.href = downloadBtn.href;
+          return;
+        }
+        const reader = response.body.getReader();
+        const chunks = [];
+        let received = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          received += value.length;
+          updateDownloadProgress(received, total);
+        }
+        const blob = new Blob(chunks, { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = downloadBtn.download || 'translated.pdf';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+        downloadBar.style.width = '100%';
+        downloadValue.textContent = '100%';
+        downloadStage.textContent = '下载完成';
+      } catch (error) {
+        setStatus(error.message, 'error');
+        downloadStage.textContent = error.message;
+      } finally {
+        downloadBtn.classList.remove('is-loading');
+      }
+    }
+
+    downloadBtn.addEventListener('click', downloadPdfWithProgress);
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      normalizeBeforeSubmit();
+      syncApiPoolField();
+      syncPageRangeControls();
+      saveSettingsIfAllowed();
+      resultCard.classList.add('hidden');
+      resultMeta.textContent = '可以下载到本机。';
+      downloadProgress.classList.add('hidden');
+      downloadBar.style.width = '0%';
+      downloadValue.textContent = '0%';
+      updateProgress({ progress: 1, stage: '正在上传 PDF', translated_count: 0, line_count: 0, unit_label: '文本块', layout_mode: 'block', font_label: '论文模板', preserve_color: true });
+      submitBtn.disabled = true;
+      setStatus('正在上传并创建翻译任务。', 'working');
+
+      try {
+        const response = await fetch('/api/translate', {
+          method: 'POST',
+          body: new FormData(form)
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || '任务创建失败');
+        setStatus('翻译任务已开始，正在更新进度。', 'working');
+        const job = await pollJob(data.status_url);
+        downloadBtn.href = job.download_url;
+        downloadBtn.download = job.filename;
+        resultMeta.textContent = job.filename;
+        resultCard.classList.remove('hidden');
+        const stats = job.stats;
+        setStatus(`完成：翻译 ${stats.translated_count}/${stats.line_count} 个${job.unit_label || '文本块'}，用时 ${stats.seconds}s，字体 ${stats.font}，已保留原文字体颜色。`, 'done');
+      } catch (error) {
+        setStatus(error.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    loadSavedSettings();
+    syncPageRangeControls();
+  </script>
+</body>
+</html>
