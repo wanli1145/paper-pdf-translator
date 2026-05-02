@@ -1,0 +1,555 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #16201c;
+  background: #f5f7f3;
+}
+
+.shell {
+  width: min(1120px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+.workspace {
+  display: grid;
+  gap: 18px;
+}
+
+.topbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0 4px;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.05;
+}
+
+p {
+  margin: 8px 0 0;
+  color: #52615a;
+}
+
+.ghost,
+.download,
+button {
+  min-height: 44px;
+  border-radius: 8px;
+  border: 1px solid #1d4d3a;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ghost {
+  color: #1d4d3a;
+  background: transparent;
+}
+
+.panel {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 16px 42px rgba(32, 45, 39, 0.08);
+}
+
+.dropzone {
+  min-height: 138px;
+  border: 1px dashed #87a091;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 24px;
+  background: #fbfcfa;
+  cursor: pointer;
+}
+
+.dropzone input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.drop-title {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.drop-meta {
+  color: #69776f;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.wide-field {
+  grid-column: span 2;
+}
+
+.check-field input {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  accent-color: #1d4d3a;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  font-weight: 700;
+  color: #2a3731;
+}
+
+label span {
+  font-size: 13px;
+}
+
+.field-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2a3731;
+}
+
+.field-hint {
+  color: #69776f;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #cbd5ce;
+  border-radius: 8px;
+  padding: 11px 12px;
+  font: inherit;
+  color: #17231d;
+  background: #fff;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 104px;
+}
+
+.prompt {
+  font-weight: 700;
+}
+
+.page-range-box {
+  display: grid;
+  gap: 7px;
+}
+
+.page-range-controls {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.85fr) minmax(90px, 0.55fr) minmax(180px, 1.4fr);
+  gap: 8px;
+}
+
+.page-range-controls input[readonly] {
+  color: #69776f;
+  background: #f4f7f4;
+}
+
+.api-pool {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.api-pool-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.api-pool h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.api-pool p {
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.api-pool-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pool-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.9fr) minmax(220px, 1.4fr) minmax(170px, 1fr) minmax(150px, 0.9fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.pool-grid-head {
+  padding: 0 4px;
+  color: #69776f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pool-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.pool-row input,
+.pool-row select {
+  min-width: 0;
+}
+
+.pool-remove {
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.api-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.api-tools span {
+  color: #69776f;
+  font-size: 13px;
+}
+
+.secret-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.secret-tools span {
+  color: #69776f;
+  font-size: 13px;
+}
+
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-check input {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  accent-color: #1d4d3a;
+}
+
+.inline-check span {
+  color: #2a3731;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.result-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #b8d6c3;
+  border-radius: 8px;
+  background: #f0f7ef;
+}
+
+.result-card.hidden {
+  display: none;
+}
+
+.result-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.result-copy strong {
+  color: #173c2d;
+}
+
+.result-copy span {
+  overflow: hidden;
+  color: #52615a;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-actions {
+  display: flex;
+  gap: 10px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+.progress-wrap {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.progress-wrap.hidden {
+  display: none;
+}
+
+.progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.progress-head span,
+.progress-detail {
+  color: #52615a;
+  font-size: 13px;
+}
+
+.progress-track {
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dce4dd;
+}
+
+.progress-bar {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: #1d4d3a;
+  transition: width 220ms ease;
+}
+
+button {
+  background: #1d4d3a;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #ffffff;
+  color: #1d4d3a;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.download {
+  background: #1d4d3a;
+  color: #ffffff;
+}
+
+.download.is-loading {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.download-progress {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  padding-top: 4px;
+}
+
+.download-progress.hidden {
+  display: none;
+}
+
+.download-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.download-progress-head span,
+.download-progress-head strong {
+  color: #52615a;
+  font-size: 13px;
+}
+
+.hidden {
+  display: none;
+}
+
+.status {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid #d9e0d8;
+  background: #ffffff;
+}
+
+.status p {
+  margin: 0;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: #6f8077;
+  flex: 0 0 auto;
+}
+
+.status.working .status-dot {
+  background: #bd7d20;
+}
+
+.status.done .status-dot {
+  background: #237a43;
+}
+
+.status.error .status-dot {
+  background: #c73838;
+}
+
+@media (max-width: 860px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wide-field {
+    grid-column: span 2;
+  }
+
+  .api-pool-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .result-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .result-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pool-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .page-range-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .pool-grid-head {
+    display: none;
+  }
+
+  .pool-remove {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 560px) {
+  .shell {
+    width: min(100vw - 20px, 1120px);
+    padding: 16px 0;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wide-field {
+    grid-column: span 1;
+  }
+
+  .ghost,
+  .download,
+  button {
+    width: 100%;
+  }
+
+  .api-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .result-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .api-pool-actions,
+  .pool-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .api-pool-actions {
+    display: grid;
+  }
+
+  .pool-remove {
+    grid-column: span 1;
+  }
+
+}
